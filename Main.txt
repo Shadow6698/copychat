@@ -1,0 +1,452 @@
+-- Roblox Chat Copier GUI Script
+-- Criado para copiar automaticamente mensagens de chat de um jogador específico
+
+local Players = game:GetService("Players")
+local StarterGui = game:GetService("StarterGui")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+-- Variáveis de controle
+local targetPlayer = nil
+local copyingEnabled = false
+local copyAllEnabled = false
+local chatConnection = nil
+local allChatConnection = nil
+
+-- Criar GUI
+local ScreenGui = Instance.new("ScreenGui")
+local MainFrame = Instance.new("Frame")
+local TitleLabel = Instance.new("TextLabel")
+local PlayerTextBox = Instance.new("TextBox")
+local CopyButton = Instance.new("TextButton")
+local StopButton = Instance.new("TextButton")
+local AllButton = Instance.new("TextButton")
+local StatusLabel = Instance.new("TextLabel")
+local CloseButton = Instance.new("TextButton")
+
+-- Configurar ScreenGui
+ScreenGui.Name = "ChatCopierGUI"
+ScreenGui.Parent = PlayerGui
+ScreenGui.ResetOnSpawn = false
+
+-- Configurar MainFrame
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+MainFrame.BorderSizePixel = 0
+MainFrame.Position = UDim2.new(0.3, 0, 0.3, 0)
+MainFrame.Size = UDim2.new(0, 400, 0, 300)
+MainFrame.Active = true
+MainFrame.Draggable = true
+
+-- Adicionar bordas arredondadas
+local Corner = Instance.new("UICorner")
+Corner.CornerRadius = UDim.new(0, 8)
+Corner.Parent = MainFrame
+
+-- Configurar TitleLabel
+TitleLabel.Name = "TitleLabel"
+TitleLabel.Parent = MainFrame
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Position = UDim2.new(0, 0, 0, 0)
+TitleLabel.Size = UDim2.new(1, 0, 0, 40)
+TitleLabel.Font = Enum.Font.SourceSansBold
+TitleLabel.Text = "Chat Copier"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.TextScaled = true
+
+-- Configurar PlayerTextBox
+PlayerTextBox.Name = "PlayerTextBox"
+PlayerTextBox.Parent = MainFrame
+PlayerTextBox.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+PlayerTextBox.BorderSizePixel = 0
+PlayerTextBox.Position = UDim2.new(0.05, 0, 0.2, 0)
+PlayerTextBox.Size = UDim2.new(0.9, 0, 0, 35)
+PlayerTextBox.Font = Enum.Font.SourceSans
+PlayerTextBox.PlaceholderText = "Digite o nick do jogador..."
+PlayerTextBox.Text = ""
+PlayerTextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+PlayerTextBox.TextScaled = true
+
+local TextBoxCorner = Instance.new("UICorner")
+TextBoxCorner.CornerRadius = UDim.new(0, 4)
+TextBoxCorner.Parent = PlayerTextBox
+
+-- Configurar CopyButton
+CopyButton.Name = "CopyButton"
+CopyButton.Parent = MainFrame
+CopyButton.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+CopyButton.BorderSizePixel = 0
+CopyButton.Position = UDim2.new(0.05, 0, 0.4, 0)
+CopyButton.Size = UDim2.new(0.28, 0, 0, 35)
+CopyButton.Font = Enum.Font.SourceSansBold
+CopyButton.Text = "Copiar"
+CopyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CopyButton.TextScaled = true
+
+local CopyButtonCorner = Instance.new("UICorner")
+CopyButtonCorner.CornerRadius = UDim.new(0, 4)
+CopyButtonCorner.Parent = CopyButton
+
+-- Configurar AllButton
+AllButton.Name = "AllButton"
+AllButton.Parent = MainFrame
+AllButton.BackgroundColor3 = Color3.fromRGB(0, 120, 170)
+AllButton.BorderSizePixel = 0
+AllButton.Position = UDim2.new(0.36, 0, 0.4, 0)
+AllButton.Size = UDim2.new(0.28, 0, 0, 35)
+AllButton.Font = Enum.Font.SourceSansBold
+AllButton.Text = "All"
+AllButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+AllButton.TextScaled = true
+
+local AllButtonCorner = Instance.new("UICorner")
+AllButtonCorner.CornerRadius = UDim.new(0, 4)
+AllButtonCorner.Parent = AllButton
+
+-- Configurar StopButton
+StopButton.Name = "StopButton"
+StopButton.Parent = MainFrame
+StopButton.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
+StopButton.BorderSizePixel = 0
+StopButton.Position = UDim2.new(0.67, 0, 0.4, 0)
+StopButton.Size = UDim2.new(0.28, 0, 0, 35)
+StopButton.Font = Enum.Font.SourceSansBold
+StopButton.Text = "Parar"
+StopButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+StopButton.TextScaled = true
+
+local StopButtonCorner = Instance.new("UICorner")
+StopButtonCorner.CornerRadius = UDim.new(0, 4)
+StopButtonCorner.Parent = StopButton
+
+-- Configurar StatusLabel
+StatusLabel.Name = "StatusLabel"
+StatusLabel.Parent = MainFrame
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Position = UDim2.new(0.05, 0, 0.55, 0)
+StatusLabel.Size = UDim2.new(0.9, 0, 0, 30)
+StatusLabel.Font = Enum.Font.SourceSans
+StatusLabel.Text = "Status: Aguardando..."
+StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+StatusLabel.TextScaled = true
+
+-- Configurar CloseButton
+CloseButton.Name = "CloseButton"
+CloseButton.Parent = MainFrame
+CloseButton.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
+CloseButton.BorderSizePixel = 0
+CloseButton.Position = UDim2.new(0.9, 0, 0, 5)
+CloseButton.Size = UDim2.new(0, 30, 0, 30)
+CloseButton.Font = Enum.Font.SourceSansBold
+CloseButton.Text = "X"
+CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseButton.TextScaled = true
+
+local CloseButtonCorner = Instance.new("UICorner")
+CloseButtonCorner.CornerRadius = UDim.new(0, 4)
+CloseButtonCorner.Parent = CloseButton
+
+-- Função para encontrar jogador
+local function findPlayer(partialName)
+    partialName = partialName:lower()
+    for _, player in pairs(Players:GetPlayers()) do
+        if player.Name:lower():find(partialName) or player.DisplayName:lower():find(partialName) then
+            return player
+        end
+    end
+    return nil
+end
+
+-- Função para enviar mensagem no chat normal do servidor
+local function sendChatMessage(message)
+    local success = false
+    
+    -- Método 1: ReplicatedStorage ChatEvents (Mais comum)
+    pcall(function()
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local chatEvents = ReplicatedStorage:WaitForChild("DefaultChatSystemChatEvents", 2)
+        if chatEvents then
+            local sayMessageRequest = chatEvents:WaitForChild("SayMessageRequest", 2)
+            if sayMessageRequest then
+                sayMessageRequest:FireServer(message, "All")
+                success = true
+                print("Método 1 funcionou - ReplicatedStorage")
+            end
+        end
+    end)
+    
+    if not success then
+        -- Método 2: TextChatService (Novo sistema de chat)
+        pcall(function()
+            local TextChatService = game:GetService("TextChatService")
+            local textChannel = TextChatService:FindFirstChild("TextChannels")
+            if textChannel then
+                local rbxGeneral = textChannel:FindFirstChild("RBXGeneral")
+                if rbxGeneral then
+                    rbxGeneral:SendAsync(message)
+                    success = true
+                    print("Método 2 funcionou - TextChatService")
+                end
+            end
+        end)
+    end
+    
+    if not success then
+        -- Método 3: Chat Service direto
+        pcall(function()
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head") then
+                local ChatService = game:GetService("Chat")
+                ChatService:Chat(LocalPlayer.Character.Head, message)
+                success = true
+                print("Método 3 funcionou - ChatService")
+            end
+        end)
+    end
+    
+    if not success then
+        -- Método 4: StarterPlayer ChatScript
+        pcall(function()
+            local StarterPlayer = game:GetService("StarterPlayer")
+            local chatScript = StarterPlayer:FindFirstChild("StarterPlayerScripts")
+            if chatScript then
+                local chatMain = chatScript:FindFirstChild("ChatScript")
+                if chatMain then
+                    local messageData = {
+                        Message = message,
+                        FromSpeaker = LocalPlayer.Name
+                    }
+                    -- Tentar enviar via ChatScript
+                    success = true
+                    print("Método 4 funcionou - ChatScript")
+                end
+            end
+        end)
+    end
+    
+    -- Método 5: RemoteEvent customizado (para alguns servidores)
+    if not success then
+        pcall(function()
+            for _, obj in pairs(game:GetDescendants()) do
+                if obj.Name == "SayMessageRequest" and obj:IsA("RemoteEvent") then
+                    obj:FireServer(message, "All")
+                    success = true
+                    print("Método 5 funcionou - RemoteEvent customizado")
+                    break
+                end
+            end
+        end)
+    end
+    
+    return success
+end
+
+-- Função para iniciar cópia de jogador específico
+local function startCopying()
+    if PlayerTextBox.Text == "" then
+        StatusLabel.Text = "Status: Digite um nick!"
+        return
+    end
+    
+    -- Parar modo All se estiver ativo
+    if copyAllEnabled then
+        stopAllCopying()
+    end
+    
+    targetPlayer = findPlayer(PlayerTextBox.Text)
+    if not targetPlayer then
+        StatusLabel.Text = "Status: Jogador não encontrado!"
+        return
+    end
+    
+    copyingEnabled = true
+    StatusLabel.Text = "Status: Copiando " .. targetPlayer.Name
+    
+    -- Conectar ao chat
+    if chatConnection then
+        chatConnection:Disconnect()
+    end
+    
+    chatConnection = targetPlayer.Chatted:Connect(function(message)
+        if copyingEnabled and targetPlayer then
+            print("📢 " .. targetPlayer.Name .. " disse: " .. message)
+            
+            -- Sem delay - instantâneo
+            local success = sendChatMessage(message)
+            
+            if success then
+                print("✅ Mensagem copiada para o chat: " .. message)
+                StatusLabel.Text = "Status: ✅ Última: " .. message:sub(1, 20) .. (message:len() > 20 and "..." or "")
+            else
+                print("❌ Falha ao copiar mensagem")
+                StatusLabel.Text = "Status: ❌ Erro - Verifique o console"
+            end
+        end
+    end)
+    
+    -- Mensagem de confirmação
+    print("🎯 Iniciando cópia de: " .. targetPlayer.Name)
+    print("💬 Aguardando mensagens no chat...")
+end
+
+-- Função para iniciar cópia de TODOS os jogadores
+local function startAllCopying()
+    -- Parar cópia individual se estiver ativa
+    if copyingEnabled then
+        stopCopying()
+    end
+    
+    copyAllEnabled = true
+    StatusLabel.Text = "Status: 🌍 Copiando TODO o servidor"
+    
+    -- Limpar conexões anteriores
+    if allChatConnection then
+        allChatConnection:Disconnect()
+    end
+    
+    -- Conectar a TODOS os jogadores atuais
+    local connections = {}
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then -- Não copiar próprias mensagens
+            local connection = player.Chatted:Connect(function(message)
+                if copyAllEnabled then
+                    print("🌍 " .. player.Name .. " disse: " .. message)
+                    
+                    -- Sem delay - instantâneo
+                    local success = sendChatMessage(message)
+                    
+                    if success then
+                        print("✅ Copiado de " .. player.Name .. ": " .. message)
+                        StatusLabel.Text = "Status: 🌍 [" .. player.Name .. "]: " .. message:sub(1, 15) .. (message:len() > 15 and "..." or "")
+                    else
+                        print("❌ Falha ao copiar de " .. player.Name)
+                    end
+                end
+            end)
+            table.insert(connections, connection)
+        end
+    end
+    
+    -- Conectar a novos jogadores que entrarem
+    local playerAddedConnection = Players.PlayerAdded:Connect(function(player)
+        if copyAllEnabled and player ~= LocalPlayer then
+            local connection = player.Chatted:Connect(function(message)
+                if copyAllEnabled then
+                    print("🌍 " .. player.Name .. " disse: " .. message)
+                    local success = sendChatMessage(message)
+                    if success then
+                        StatusLabel.Text = "Status: 🌍 [" .. player.Name .. "]: " .. message:sub(1, 15) .. (message:len() > 15 and "..." or "")
+                    end
+                end
+            end)
+            table.insert(connections, connection)
+        end
+    end)
+    
+    -- Armazenar todas as conexões
+    allChatConnection = {
+        connections = connections,
+        playerAddedConnection = playerAddedConnection
+    }
+    
+    print("🌍 Iniciando cópia de TODO o servidor!")
+    print("💬 Copiando mensagens de " .. (#connections) .. " jogadores...")
+end
+
+-- Função para parar cópia individual
+local function stopCopying()
+    copyingEnabled = false
+    targetPlayer = nil
+    if chatConnection then
+        chatConnection:Disconnect()
+        chatConnection = nil
+    end
+end
+
+-- Função para parar cópia de todos
+local function stopAllCopying()
+    copyAllEnabled = false
+    if allChatConnection then
+        -- Desconectar todas as conexões
+        for _, connection in pairs(allChatConnection.connections) do
+            connection:Disconnect()
+        end
+        if allChatConnection.playerAddedConnection then
+            allChatConnection.playerAddedConnection:Disconnect()
+        end
+        allChatConnection = nil
+    end
+end
+
+-- Função para parar tudo
+local function stopAll()
+    stopCopying()
+    stopAllCopying()
+    StatusLabel.Text = "Status: Parado"
+    print("⏹️ Todas as cópias foram paradas")
+end
+
+-- Eventos dos botões
+CopyButton.MouseButton1Click:Connect(startCopying)
+AllButton.MouseButton1Click:Connect(startAllCopying)
+StopButton.MouseButton1Click:Connect(stopAll)
+CloseButton.MouseButton1Click:Connect(function()
+    stopAll()
+    ScreenGui:Destroy()
+end)
+
+-- Evento para Enter na TextBox
+PlayerTextBox.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        startCopying()
+    end
+end)
+
+-- Efeitos visuais dos botões
+local function createButtonEffect(button, hoverColor, clickColor)
+    local originalColor = button.BackgroundColor3
+    
+    button.MouseEnter:Connect(function()
+        if not copyingEnabled or button ~= CopyButton then
+            local tween = TweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = hoverColor})
+            tween:Play()
+        end
+    end)
+    
+    button.MouseLeave:Connect(function()
+        if not copyingEnabled or button ~= CopyButton then
+            local tween = TweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = originalColor})
+            tween:Play()
+        end
+    end)
+    
+    button.MouseButton1Down:Connect(function()
+        local tween = TweenService:Create(button, TweenInfo.new(0.1), {BackgroundColor3 = clickColor})
+        tween:Play()
+    end)
+    
+    button.MouseButton1Up:Connect(function()
+        local tween = TweenService:Create(button, TweenInfo.new(0.1), {BackgroundColor3 = originalColor})
+        tween:Play()
+    end)
+end
+
+-- Aplicar efeitos
+createButtonEffect(CopyButton, Color3.fromRGB(0, 200, 0), Color3.fromRGB(0, 140, 0))
+createButtonEffect(AllButton, Color3.fromRGB(0, 150, 200), Color3.fromRGB(0, 100, 140))
+createButtonEffect(StopButton, Color3.fromRGB(200, 0, 0), Color3.fromRGB(140, 0, 0))
+createButtonEffect(CloseButton, Color3.fromRGB(200, 0, 0), Color3.fromRGB(140, 0, 0))
+
+-- Limpeza quando jogador sai
+game.Players.PlayerRemoving:Connect(function(player)
+    if player == targetPlayer then
+        stopCopying()
+        StatusLabel.Text = "Status: Jogador alvo saiu do servidor"
+    end
+end)
+
+print("Chat Copier GUI carregado com sucesso!")
